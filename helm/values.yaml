@@ -4,6 +4,7 @@
 
 # subchart values
 athens-proxy:
+  # If true, the athens-proxy chart will be installed.
   enabled: false
 
   downloadMode: |
@@ -13,10 +14,13 @@ athens-proxy:
 
   configEnvVars: []
 
-postgresql: {}
+postgresql:
+  # If true, the postgresql chart will be installed.
+  enabled: false
 
 redis:
-  enabled: true
+  # If true, the redis chart will be installed.
+  enabled: false
   architecture: standalone
   auth:
     enabled: false
@@ -38,7 +42,7 @@ seed:
 replicaCount: 1
 
 image:
-  repository: ghcr.io/cezarguimaraes/pkgsite
+  repository: ghcr.io/tankbusta/pkgsite
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
