@@ -1,0 +1,15 @@
+{{- if .Values.experiments }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pkgsite.fullname" . }}-experiments
+  labels:
+    {{- include "pkgsite.labels" . | nindent 4 }}
+data:
+  experiments.yaml: |
+    experiments:
+    {{- range .Values.experiments }}
+      - name: {{ .name }}
+        rollout: {{ .rollout }}
+    {{- end }}
+{{- end }} 

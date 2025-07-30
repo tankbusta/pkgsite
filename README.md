@@ -37,48 +37,8 @@ These steps will walk you through setting up a fully featured _pkgsite_ deployme
    ```bash
    kubectl create namespace pkgsite
    ```
-2. (Optional) Configure the private go modules proxy
-   1. Create a secret to store a GITHUB_TOKEN
 
-       ```bash
-       kubectl create secret -n pkgsite generic github-token --from-literal=token=$GITHUB_TOKEN
-       ```
-
-    2. Create a _values.yaml_ file to configure the proxy:
-  
-        ```yaml
-        athens-proxy:
-          enabled: true
-        
-          downloadMode: |
-            downloadURL = "https://proxy.golang.org"
-        
-            mode = "redirect"
-        
-            download "github.com/YOURORGANIZATION/*" {
-              mode = "sync"
-            }
-        
-          configEnvVars:
-            - name: ATHENS_GONOSUM_PATTERNS
-              value: github.com/YOURORGANIZATION/*
-            - name: ATHENS_GITHUB_TOKEN
-              valueFrom:
-                # this secret is expected to exist. Example:
-                # kubectl create secret generic github-token --from-literal=token=$GITHUB_TOKEN
-                secretKeyRef:
-                  name: github-token
-                  key: token
-            - name: ATHENS_DOWNLOAD_MODE
-              valueFrom:
-                # this configMap is created by setting athens-proxy.downloadMode
-                configMapKeyRef:
-                  name: athens-config
-                  key: download.hcl
-        ```
-
-        Note the [`.athens-proxy.downloadMode`](https://docs.gomods.io/configuration/download/) property. This example configures _athens-proxy_ to serve private packages from `github.com/YOURORGANIZATION/*`, while redirecting any other package to Go's [default module mirror](https://proxy.golang.org/) for improved performance and reduced costs.
-3. Install the chart
+1. Install the chart
    1. Using the _values.yaml_ file created on the previous step:
   
       ```bash
@@ -87,17 +47,15 @@ These steps will walk you through setting up a fully featured _pkgsite_ deployme
 
     This can take a few minutes as the seed-db post-hook-install seeds the
     pkgsite's database.
-4. Verify deployment status
+1. Verify deployment status
 
    ```bash
    kubectl get pod -n pkgsite
    NAME                      READY   STATUS      RESTARTS   AGE
    pkgsite-86566fc8b-hfzbs   1/1     Running     0          9m48s
-   pkgsite-postgresql-0      1/1     Running     0          9m48s
-   pkgsite-redis-master-0    1/1     Running     0          9m48s
    pkgsite-setup-db-snxmb    0/1     Completed   0          9m36s
    ```
-5. Browse your docs locally:
+1. Browse your docs locally:
 
    ```bash
    kubectl port-forward svc/pkgsite -n pkgsite 8080
@@ -148,37 +106,18 @@ All YAML snippets in this section should be included in your custom _values.yaml
 
    Find the complete list of deployment settings in the default [_values.yaml_ file](./helm/values.yaml).
 
-### PostgreSQL
+### Experiments
 
-   Find the complete list of PostgreSQL settings in the chart's [ArtifactHub page](https://artifacthub.io/packages/helm/bitnami/postgresql#parameters). Prefix parameters by `postgresql`:
-
-   ```yaml
-   postgresql:
-     image:
-       registry: my-private-container-registry.io
-   ```
-
-### Redis
-
-   Find the complete list of Redis settings in the chart's [ArtifactHub page](https://artifacthub.io/packages/helm/bitnami/redis#parameters). Prefix parameters by `redis`:
+   You can configure dynamic feature flags and experiments that will be mounted as a YAML configuration file into the deployment pod. The configuration is set via the `GO_DISCOVERY_CONFIG_DYNAMIC` environment variable:
 
    ```yaml
-   redis:
-     architecture: replication
+   experiments:
+     - name: sidenav
+       rollout: 100
+     - name: new_search
+       rollout: 50
+     - name: dark_mode
+       rollout: 25
    ```
 
-### athens-proxy
-
-   Find the complete list of athens-proxy settings in the chart's [Github Repository](https://github.com/gomods/athens-charts/blob/main/charts/athens-proxy/values.yaml). Prefix parameters by `athens-proxy`:
-   
-   ```yaml
-   athens-proxy:
-     storage:
-       type: disk
-       disk:
-         storageRoot: "/var/lib/athens"
-         persistence:
-           enabled: true
-           accessMode: ReadWriteOnce
-           size: 4Gi
-   ```
+   This creates a ConfigMap named `{release-name}-experiments` containing an `experiments.yaml` file that is mounted at `/etc/experiments/experiments.yaml` in the container. The application can read this file to determine which experiments are enabled and their rollout percentages.

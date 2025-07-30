@@ -7,7 +7,7 @@ metadata:
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
 spec:
   backoffLimit: {{ .Values.seed.backoffLimit }}
   template:
@@ -32,12 +32,16 @@ spec:
         - name: GO_DISCOVERY_DATABASE_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: {{ include "pkgsite.postgresql.password.secret" . }}
+              name: {{ .Values.postgresql.password.secret }}
               key: postgres-password
+        - name: GO_DISCOVERY_DATABASE_USER
+          value: "{{ .Values.postgresql.user }}"
+        - name: GO_DISCOVERY_DATABASE_NAME
+          value: "{{ .Values.postgresql.database }}"
         - name: GO_DISCOVERY_DATABASE_HOST
-          value: "{{ include "pkgsite.postgresql.host" . }}"
+          value: "{{ .Values.postgresql.host }}"
         - name: GO_MODULE_PROXY_URL
-          value: {{ include "pkgsite.goproxy" . }}
+          value: {{ .Values.goproxy }}
         volumeMounts:
           - name: seed
             mountPath: /seed

@@ -35,7 +35,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           env:
             - name: GO_DISCOVERY_DATABASE_HOST
-              value: "{{ include "pkgsite.postgresql.host" . }}"
+              value: "{{ .Values.postgresql.host }}"
           command: ["sh", "-ec"]
           args:
             - "nc -v -z -w 10 ${GO_DISCOVERY_DATABASE_HOST} 5432"
@@ -49,19 +49,26 @@ spec:
             - name: GO_DISCOVERY_DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "pkgsite.postgresql.password.secret" . }}
+                  name: {{ .Values.postgresql.password.secret }}
                   key: postgres-password
             - name: GO_DISCOVERY_DATABASE_HOST
-              value: "{{ include "pkgsite.postgresql.host" . }}"
+              value: "{{ .Values.postgresql.host }}"
+            - name: GO_DISCOVERY_DATABASE_NAME
+              value: "{{ .Values.postgresql.database }}"
+            - name: GO_DISCOVERY_DATABASE_USER
+              value: "{{ .Values.postgresql.user }}"
             {{- if $.Values.redis.enabled }}
             - name: GO_DISCOVERY_REDIS_HOST
-            # TODO: use exact logic from redis chart
-              value: "{{ include "pkgsite.redis.host" . }}"
+              value: "{{ .Values.redis.host }}"
+            {{- end }}
+            {{- if $.Values.experiments }}
+            - name: GO_DISCOVERY_CONFIG_DYNAMIC
+              value: "/etc/experiments/experiments.yaml"
             {{- end }}
           args:
             - -local
             - -host=0.0.0.0:{{ .Values.service.port }}
-            - "-proxy_url={{ include "pkgsite.goproxy" . }}"
+            - "-proxy_url={{ .Values.goproxy }}"
             - "-bypass_license_check={{ $.Values.bypassLicenseCheck }}"
           ports:
             - name: http
@@ -77,14 +84,24 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- with .Values.volumeMounts }}
           volumeMounts:
+            {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
-          {{- end }}
-      {{- with .Values.volumes }}
+            {{- end }}
+            {{- if $.Values.experiments }}
+            - name: experiments-config
+              mountPath: /etc/experiments
+              readOnly: true
+            {{- end }}
       volumes:
+        {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
+        {{- if $.Values.experiments }}
+        - name: experiments-config
+          configMap:
+            name: {{ include "pkgsite.fullname" . }}-experiments
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
