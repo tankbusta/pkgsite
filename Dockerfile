@@ -19,26 +19,32 @@ RUN go build -ldflags="-s -w" -o bin/frontend ./cmd/frontend/main.go && \
     go build -ldflags="-s -w" -o bin/seeddb ./devtools/cmd/seeddb/main.go && \
     go build -ldflags="-s -w" -o bin/db ./devtools/cmd/db/main.go
 
-RUN apt-get update && apt-get install git
+RUN rm -rf /go/src/app/.git
+
+# Intermediate stage to prepare libraries for all architectures
+FROM debian:bookworm-slim AS git-builder
+
+RUN apt-get update && apt-get install git -y
 
 RUN mv `git --exec-path` /git-exec
 
-RUN mv /usr/bin/git* ./bin
-
-# Intermediate stage to prepare libraries for all architectures
-FROM debian:bookworm-slim AS libs
-
-# Copy libraries for all supported architectures
-RUN mkdir -p /libs/lib/x86_64-linux-gnu /libs/lib/aarch64-linux-gnu /libs/lib/arm-linux-gnueabihf && \
-    for lib in libcurl-gnutls.so.4 libpcre2-8.so.0 libz.so.1 libc.so.6 libnghttp2.so.14 libidn2.so.0 librtmp.so.1 libssh2.so.1 libpsl.so.5 libnettle.so.8 libgnutls.so.30 libgssapi_krb5.so.2 libldap-2.5.so.0 liblber-2.5.so.0 libzstd.so.1 libbrotlidec.so.1 libunistring.so.2 libhogweed.so.6 libgmp.so.10 libcrypto.so.3 libp11-kit.so.0 libtasn1.so.6 libkrb5.so.3 libk5crypto.so.3 libcom_err.so.2 libkrb5support.so.0 libsasl2.so.2 libbrotlicommon.so.1 libffi.so.8 libkeyutils.so.1 libresolv.so.2 libpcre2-8.so.0; do \
-        if [ -f "/lib/x86_64-linux-gnu/$lib" ]; then \
-            cp "/lib/x86_64-linux-gnu/$lib" "/libs/lib/x86_64-linux-gnu/"; \
-        fi; \
-        if [ -f "/lib/aarch64-linux-gnu/$lib" ]; then \
-            cp "/lib/aarch64-linux-gnu/$lib" "/libs/lib/aarch64-linux-gnu/"; \
-        fi; \
-        if [ -f "/lib/arm-linux-gnueabihf/$lib" ]; then \
-            cp "/lib/arm-linux-gnueabihf/$lib" "/libs/lib/arm-linux-gnueabihf/"; \
+# Copy libraries for all supported architectures using ldd to discover dependencies
+RUN mkdir -p /libs/x86_64-linux-gnu /libs/aarch64-linux-gnu /libs/arm-linux-gnueabihf && \
+    # Use ldd to get library dependencies for git and git-remote-https
+    for binary in /git-exec/git /git-exec/git-remote-http; do \
+        if [ -f "$binary" ]; then \
+            ldd "$binary" | grep "=>" | awk '{print $3}' | grep -v "not found" | while read lib; do \
+                if [ -n "$lib" ] && [ -f "$lib" ]; then \
+                    # Determine architecture from library path
+                    if echo "$lib" | grep -q "x86_64-linux-gnu"; then \
+                        cp "$lib" "/libs/x86_64-linux-gnu/$(basename "$lib")" 2>/dev/null || true; \
+                    elif echo "$lib" | grep -q "aarch64-linux-gnu"; then \
+                        cp "$lib" "/libs/aarch64-linux-gnu/$(basename "$lib")" 2>/dev/null || true; \
+                    elif echo "$lib" | grep -q "arm-linux-gnueabihf"; then \
+                        cp "$lib" "/libs/arm-linux-gnueabihf/$(basename "$lib")" 2>/dev/null || true; \
+                    fi; \
+                fi; \
+            done; \
         fi; \
     done
 
@@ -49,15 +55,15 @@ WORKDIR /app
 COPY --from=build /go/src/app/ /app
 
 # git sub programs
-COPY --from=build /git-exec /git-exec
+COPY --from=git-builder /git-exec /git-exec
 
 ENV GIT_EXEC_PATH=/git-exec
 
-COPY --from=build /usr/share/git-core /usr/share/git-core
+COPY --from=git-builder /usr/share/git-core /usr/share/git-core
 
 # Copy the prepared libraries from the intermediate stage
-COPY --from=libs /libs/ /lib/
+COPY --from=git-builder /libs/ /lib/
 
-ENV PATH="${PATH}:/app/bin"
+ENV PATH="${PATH}:/app/bin:/git-exec"
 
 ENTRYPOINT ["frontend"]
