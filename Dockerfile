@@ -4,7 +4,7 @@ ARG BUILDPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
 
-FROM --platform=$BUILDPLATFORM golang:1.24 AS build
+FROM --platform=${TARGETPLATFORM:-linux/amd64} golang:1.24 AS build
 
 WORKDIR /go/src/app
 
@@ -15,9 +15,9 @@ ENV CGO_ENABLED=0
 
 RUN GOBIN=/go/src/app/bin go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
-RUN go build -ldflags="-s -w" -o bin/frontend ./cmd/frontend/main.go && \
-    go build -ldflags="-s -w" -o bin/seeddb ./devtools/cmd/seeddb/main.go && \
-    go build -ldflags="-s -w" -o bin/db ./devtools/cmd/db/main.go
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-s -w" -o bin/frontend ./cmd/frontend/main.go && \
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-s -w" -o bin/seeddb ./devtools/cmd/seeddb/main.go && \
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-s -w" -o bin/db ./devtools/cmd/db/main.go
 
 RUN rm -rf /go/src/app/.git
 
@@ -48,7 +48,7 @@ RUN mkdir -p /libs/x86_64-linux-gnu /libs/aarch64-linux-gnu /libs/arm-linux-gnue
         fi; \
     done
 
-FROM --platform=$TARGETPLATFORM gcr.io/distroless/base-debian12:debug
+FROM gcr.io/distroless/base-debian12:debug
 
 WORKDIR /app
 
