@@ -30,7 +30,7 @@ FROM debian:bookworm-slim AS libs
 
 # Copy libraries for all supported architectures
 RUN mkdir -p /libs/lib/x86_64-linux-gnu /libs/lib/aarch64-linux-gnu /libs/lib/arm-linux-gnueabihf && \
-    for lib in libcurl-gnutls.so.4 libpcre2-8.so.0 libz.so.1 libc.so.6 libnghttp2.so.14 libidn2.so.0 librtmp.so.1 libssh2.so.1 libpsl.so.5 libnettle.so.8 libgnutls.so.30 libgssapi_krb5.so.2 libldap-2.5.so.0 liblber-2.5.so.0 libzstd.so.1 libbrotlidec.so.1 libunistring.so.2 libhogweed.so.6 libgmp.so.10 libcrypto.so.3 libp11-kit.so.0 libtasn1.so.6 libkrb5.so.3 libk5crypto.so.3 libcom_err.so.2 libkrb5support.so.0 libsasl2.so.2 libbrotlicommon.so.1 libffi.so.8 libkeyutils.so.1 libresolv.so.2; do \
+    for lib in libcurl-gnutls.so.4 libpcre2-8.so.0 libz.so.1 libc.so.6 libnghttp2.so.14 libidn2.so.0 librtmp.so.1 libssh2.so.1 libpsl.so.5 libnettle.so.8 libgnutls.so.30 libgssapi_krb5.so.2 libldap-2.5.so.0 liblber-2.5.so.0 libzstd.so.1 libbrotlidec.so.1 libunistring.so.2 libhogweed.so.6 libgmp.so.10 libcrypto.so.3 libp11-kit.so.0 libtasn1.so.6 libkrb5.so.3 libk5crypto.so.3 libcom_err.so.2 libkrb5support.so.0 libsasl2.so.2 libbrotlicommon.so.1 libffi.so.8 libkeyutils.so.1 libresolv.so.2 libpcre2-8.so.0; do \
         if [ -f "/lib/x86_64-linux-gnu/$lib" ]; then \
             cp "/lib/x86_64-linux-gnu/$lib" "/libs/lib/x86_64-linux-gnu/"; \
         fi; \
